@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PH Business Calculator</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <h1>PH Business Calculator</h1>
+      <p class="subtitle">Sales, item costs, VAT &amp; percentage tax, income tax, payroll (SSS, PhilHealth, Pag-IBIG, withholding) and profit or loss.</p>
+    </div>
+    <div class="header-actions">
+      <button type="button" id="btn-export">Export data</button>
+      <label class="file-btn">Import data<input type="file" id="btn-import" accept="application/json"></label>
+      <button type="button" id="btn-print">Print / PDF</button>
+      <button type="button" id="btn-reset" class="danger">Reset all</button>
+    </div>
+  </header>
+
+  <section class="kpis" id="kpis"></section>
+  <ul class="warnings" id="warnings"></ul>
+
+  <nav class="tabs" role="tablist">
+    <button type="button" class="tab active" data-tab="setup">1. Business setup</button>
+    <button type="button" class="tab" data-tab="products">2. Items / products</button>
+    <button type="button" class="tab" data-tab="expenses">3. Operating expenses</button>
+    <button type="button" class="tab" data-tab="staff">4. Staff &amp; payroll</button>
+    <button type="button" class="tab" data-tab="summary">5. Profit or loss</button>
+    <button type="button" class="tab" data-tab="rates">Tax rates</button>
+  </nav>
+
+  <main>
+    <!-- SETUP -->
+    <section class="panel active" id="panel-setup">
+      <h2>Business setup</h2>
+      <p class="hint">All amounts in this calculator are <strong>per month</strong>. Annual figures are computed as monthly &times; 12.</p>
+      <div class="form-grid">
+        <label>Business name
+          <input type="text" data-setup="businessName" placeholder="e.g. Juan's Sari-Sari Store">
+        </label>
+        <label>Business type
+          <select data-setup="type">
+            <option value="sole">Sole proprietor / self-employed</option>
+            <option value="corp">Corporation / OPC</option>
+          </select>
+        </label>
+        <label>VAT status
+          <select data-setup="vatStatus">
+            <option value="auto">Automatic (VAT if annual sales &gt; ₱3M)</option>
+            <option value="vat">VAT-registered (12%)</option>
+            <option value="nonvat">Non-VAT (3% percentage tax)</option>
+          </select>
+        </label>
+        <label>What do you sell?
+          <select data-setup="salesTreatment">
+            <option value="regular">Regular goods or services (VATable)</option>
+            <option value="exempt">Only VAT-exempt goods/services (NIRC Sec. 109, e.g. unprocessed agricultural or marine food)</option>
+            <option value="other">Business under other percentage taxes (Sec. 117–128, e.g. transport, franchises, amusement)</option>
+          </select>
+        </label>
+        <label>Income tax option
+          <select data-setup="taxOption">
+            <option value="graduated">Itemized deductions (graduated / RCIT)</option>
+            <option value="osd">Optional Standard Deduction (40%)</option>
+            <option value="eight" data-sole-only>8% on gross sales (sole prop, non-VAT, ≤ ₱3M)</option>
+          </select>
+        </label>
+        <label class="check" data-sole-field>
+          <input type="checkbox" data-setup="mixedIncome">
+          I also earn a salary from an employer (mixed-income earner)
+        </label>
+        <label class="check">
+          <input type="checkbox" data-setup="pricesIncludeVat">
+          My selling prices already include VAT (applies only if VAT-registered)
+        </label>
+        <label data-corp-only>Total assets, excluding land (₱)
+          <input type="number" min="0" step="any" data-setup="totalAssets">
+        </label>
+        <label data-corp-only>Years in operation
+          <input type="number" min="1" step="1" data-setup="yearsOperating">
+        </label>
+      </div>
+      <h3>Tax credits &amp; payments already made this year</h3>
+      <p class="hint">Optional; leave these at 0 if you have none. They reduce what you still have to pay, but they are not expenses.</p>
+      <div class="form-grid">
+        <label>Excess input VAT carried over from the previous quarter (₱), VAT-registered only
+          <input type="number" min="0" step="any" data-setup="vatCarryOver">
+        </label>
+        <label>VAT withheld by government customers, BIR Form 2307 (₱), VAT-registered only
+          <input type="number" min="0" step="any" data-setup="vatWithheld">
+        </label>
+        <label>Income tax withheld by your customers, BIR Form 2307 (₱)
+          <input type="number" min="0" step="any" data-setup="itCwt">
+        </label>
+        <label>Income tax already paid in earlier quarterly returns (₱)
+          <input type="number" min="0" step="any" data-setup="itPaid">
+        </label>
+      </div>
+      <div class="info">
+        <h3>Quick guide</h3>
+        <ul>
+          <li><strong>VAT, income tax and percentage tax are three different taxes.</strong> VAT and percentage tax are based on sales. Income tax is based on profit, except under the 8% option.</li>
+          <li><strong>VAT (12%)</strong>: required once your VATable sales go over ₱3,000,000 a year. You collect output VAT from customers and deduct creditable input VAT paid to VAT-registered suppliers.</li>
+          <li><strong>Percentage tax (3%)</strong>: for non-VAT businesses selling regular goods or services. It is not due if you are on the 8% option or if your goods are VAT-exempt by law.</li>
+          <li><strong>8% option</strong>: sole proprietors only, non-VAT, gross sales ≤ ₱3M. 8% of gross sales over ₱250,000 replaces both the graduated income tax and the 3% percentage tax.</li>
+          <li><strong>Corporations</strong>: 20% income tax if net taxable income ≤ ₱5M and total assets ≤ ₱100M, otherwise 25%. From the 4th year, the 2% Minimum Corporate Income Tax (MCIT) applies if it's higher.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- PRODUCTS -->
+    <section class="panel" id="panel-products">
+      <h2>Items / products sold</h2>
+      <p class="hint" id="products-hint"></p>
+      <div class="table-wrap">
+        <table class="grid">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Unit cost (₱)</th>
+              <th title="Tick if your supplier is VAT-registered and gives you a VAT invoice">Cost has 12% VAT</th>
+              <th title="Profit as a % of the selling price (before VAT). Example: 30% margin = 42.9% markup on cost.">Target margin (%)</th>
+              <th class="num">Suggested price</th>
+              <th id="price-header">Selling price (₱)</th>
+              <th>Qty sold / month</th>
+              <th class="num">Profit / unit</th>
+              <th class="num">Margin</th>
+              <th class="num">Sales / month</th>
+              <th class="num">Gross profit / month</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="products-body"></tbody>
+          <tfoot id="products-foot"></tfoot>
+        </table>
+      </div>
+      <button type="button" class="add" data-add="products">+ Add item</button>
+    </section>
+
+    <!-- EXPENSES -->
+    <section class="panel" id="panel-expenses">
+      <h2>Monthly operating expenses</h2>
+      <p class="hint">Rent, utilities, permits, supplies, transport, marketing and so on. Staff salaries go in the <em>Staff &amp; payroll</em> tab. Tick “Has VAT” if the bill comes with a VAT invoice (e.g. Meralco, PLDT/Globe, VAT-registered landlord).</p>
+      <div class="table-wrap">
+        <table class="grid">
+          <thead>
+            <tr>
+              <th>Expense</th>
+              <th>Amount / month (₱)</th>
+              <th>Has 12% VAT</th>
+              <th class="num">Net of VAT</th>
+              <th class="num">Input VAT</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="expenses-body"></tbody>
+          <tfoot id="expenses-foot"></tfoot>
+        </table>
+      </div>
+      <button type="button" class="add" data-add="expenses">+ Add expense</button>
+    </section>
+
+    <!-- STAFF -->
+    <section class="panel" id="panel-staff">
+      <h2>Staff &amp; payroll (per month)</h2>
+      <p class="hint">Enter either the <strong>daily rate</strong> or the <strong>monthly salary</strong>, and the other is filled in for you: monthly = daily rate &times; days worked (26 for a 6-day week, 22 for a 5-day week). Untick <strong>SSS / PhilHealth / Pag-IBIG</strong> or <strong>W/tax</strong> for staff who don't have them. Non-taxable allowances are de minimis benefits such as rice subsidy or uniform allowance, within BIR limits.</p>
+      <div class="table-wrap">
+        <table class="grid payroll">
+          <thead>
+            <tr>
+              <th rowspan="2">Name</th>
+              <th rowspan="2">Position</th>
+              <th rowspan="2">Daily rate (₱)</th>
+              <th rowspan="2">Days worked / month</th>
+              <th rowspan="2">Monthly salary (₱)</th>
+              <th rowspan="2">Non-taxable allowance (₱)</th>
+              <th colspan="2" class="group">Apply</th>
+              <th colspan="5" class="group">Employee deductions</th>
+              <th rowspan="2" class="num">Take-home pay</th>
+              <th colspan="3" class="group">Employer share</th>
+              <th rowspan="2" class="num">13th month (accrued)</th>
+              <th rowspan="2" class="num">Total cost to business</th>
+              <th rowspan="2"></th>
+            </tr>
+            <tr>
+              <th title="SSS, PhilHealth and Pag-IBIG (employee and employer share)">SSS / PhilHealth / Pag-IBIG</th>
+              <th title="Withholding tax on compensation">W/tax</th>
+              <th class="num">SSS</th>
+              <th class="num">PhilHealth</th>
+              <th class="num">Pag-IBIG</th>
+              <th class="num">W/tax</th>
+              <th class="num">Total</th>
+              <th class="num">SSS + EC</th>
+              <th class="num">PhilHealth</th>
+              <th class="num">Pag-IBIG</th>
+            </tr>
+          </thead>
+          <tbody id="staff-body"></tbody>
+          <tfoot id="staff-foot"></tfoot>
+        </table>
+      </div>
+      <button type="button" class="add" data-add="staff">+ Add employee</button>
+      <div class="info">
+        <h3>Payroll notes</h3>
+        <ul>
+          <li><strong>13th month pay</strong> (1/12 of the year's basic salary) is mandatory and due on or before December 24. It is tax-free up to ₱90,000 together with other bonuses.</li>
+          <li>Withholding tax uses the BIR monthly table in effect from 2023. Minimum wage earners are exempt.</li>
+          <li>Under the law, employers must register their employees with SSS, PhilHealth and Pag-IBIG. Unticking the box only removes these from the computation.</li>
+          <li>For semi-monthly payroll, divide the amounts by 2. Check that salaries meet your region's minimum wage (set by the RTWPB).</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- SUMMARY -->
+    <section class="panel" id="panel-summary">
+      <h2>Tax summary</h2>
+      <p class="hint">Estimated for one year (your monthly figures × 12). VAT, percentage tax and income tax are different taxes, so each is shown separately with its formula and an explanation.</p>
+      <div class="table-wrap">
+        <table class="statement tax-summary" id="tax-summary"></table>
+      </div>
+      <div class="tax-cards" id="tax-cards"></div>
+
+      <div class="tax-card vat-examples">
+        <h3>How 12% VAT is computed</h3>
+        <div class="two-col">
+          <div>
+            <h4>Price is before VAT (VAT-exclusive)</h4>
+            <div id="vat-ex-excl"></div>
+            <div class="formula">VAT = Price × 12%<br>Total = Price + VAT</div>
+          </div>
+          <div>
+            <h4>Price already includes VAT (VAT-inclusive)</h4>
+            <div id="vat-ex-incl"></div>
+            <div class="formula">Sales before VAT = Total ÷ 1.12<br>VAT = Total − Sales before VAT</div>
+          </div>
+        </div>
+        <p class="warn-note" id="vat-mistake"></p>
+        <h4>Try your own amount</h4>
+        <div class="vat-try">
+          <input type="number" min="0" step="any" value="1120" data-vatcalc="amount" aria-label="Amount">
+          <select data-vatcalc="mode" aria-label="Does the amount include VAT?">
+            <option value="incl">already includes VAT</option>
+            <option value="excl">is before VAT</option>
+          </select>
+        </div>
+        <div id="vat-try-result"></div>
+      </div>
+
+      <h2>Profit or loss statement</h2>
+      <p class="hint" id="summary-hint"></p>
+      <div class="table-wrap">
+        <table class="statement" id="statement"></table>
+      </div>
+      <h2>Taxes &amp; contributions to remit</h2>
+      <div class="table-wrap">
+        <table class="statement" id="remit"></table>
+      </div>
+      <p class="hint">VAT, withholding tax, and the employee share of SSS, PhilHealth and Pag-IBIG are collected from customers or employees and passed on to the government. They are not part of your expenses. The employer share and the income and percentage taxes are your own costs.</p>
+    </section>
+
+    <!-- RATES -->
+    <section class="panel" id="panel-rates">
+      <h2>Tax &amp; contribution rates</h2>
+      <p class="hint">Defaults follow the TRAIN, CREATE and EOPT laws and the 2025 SSS, PhilHealth and Pag-IBIG rates. If a rate changes, edit it here. Always check with the BIR or your accountant before filing.</p>
+      <div id="rates-form" class="rates-grid"></div>
+      <button type="button" id="btn-reset-rates">Restore default rates</button>
+      <h3>Legal basis (rules as of <span id="rules-as-of"></span>)</h3>
+      <ul class="sources" id="tax-sources"></ul>
+      <p class="hint">Rates and rules are kept in <code>tax-rules.js</code>, separate from the calculation code, so they can be updated when the law changes.</p>
+      <div class="two-col">
+        <div>
+          <h3>Graduated income tax (annual, 2023 onwards)</h3>
+          <table class="statement small" id="table-annual"></table>
+        </div>
+        <div>
+          <h3>Withholding tax on compensation (monthly)</h3>
+          <table class="statement small" id="table-monthly"></table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    These are estimates for planning only, not official tax advice. Your data is saved only in this browser.
+  </footer>
+
+  <script src="tax-rules.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
